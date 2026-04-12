@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { loadKakaoMaps } from "@/lib/kakaoLoader";
-import type { RouteStop, RouteSegment, PhotoMarker } from "@/types";
+import { getModeColor } from "@/lib/api";
+import type { RouteStop, RouteSegment, PhotoMarker, TransportMode } from "@/types";
 
 interface MapContainerProps {
   stops: RouteStop[];
   route: RouteSegment | null;
   unassignedPhotos: PhotoMarker[];
+  transportMode: TransportMode;
   onStopClick?: (stopId: string) => void;
 }
 
@@ -27,6 +29,7 @@ export default function MapContainer({
   stops,
   route,
   unassignedPhotos,
+  transportMode,
   onStopClick,
 }: MapContainerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -136,7 +139,7 @@ export default function MapContainer({
     (containerRef.current as any).__polyline__ = null;
     if (!route) return;
     const path = route.geometry.map((p) => new kakao.maps.LatLng(p.lat, p.lng));
-    const polyline = new kakao.maps.Polyline({ path, strokeWeight: 5, strokeColor: "#3B82F6", strokeOpacity: 0.7 });
+    const polyline = new kakao.maps.Polyline({ path, strokeWeight: 5, strokeColor: getModeColor(transportMode), strokeOpacity: 0.8 });
     polyline.setMap(mapRef.current);
     (containerRef.current as any).__polyline__ = polyline;
   }, [route, ready]);

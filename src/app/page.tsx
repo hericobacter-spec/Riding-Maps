@@ -285,6 +285,7 @@ export default function Home() {
             stops={stops}
             route={route}
             unassignedPhotos={unassignedPhotos}
+            transportMode={transportMode}
             onStopClick={handleStopClick}
           />
         </div>

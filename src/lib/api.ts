@@ -2,19 +2,46 @@ import type { LatLng, RouteSegment, TransportMode } from "@/types";
 
 const OSRM_BASE = "https://router.project-osrm.org/route/v1";
 
-const SPEED: Record<TransportMode, number> = {
+const SPEED_KMH: Record<TransportMode, number> = {
   car: 40,
   walk: 4.5,
   bicycle: 15,
-  traffic: 25,
+  traffic: 20,
 };
 
-const OSRM_PROFILE: Record<TransportMode, string> = {
-  car: "driving",
-  walk: "foot",
-  bicycle: "bike",
-  traffic: "driving",
+const SPEED_MS: Record<TransportMode, number> = {
+  car: SPEED_KMH.car / 3.6,
+  walk: SPEED_KMH.walk / 3.6,
+  bicycle: SPEED_KMH.bicycle / 3.6,
+  traffic: SPEED_KMH.traffic / 3.6,
 };
+
+const DIST_FACTOR: Record<TransportMode, number> = {
+  car: 1.0,
+  walk: 0.85,
+  bicycle: 0.9,
+  traffic: 1.1,
+};
+
+export function getModeColor(mode: TransportMode): string {
+  const colors: Record<TransportMode, string> = {
+    car: "#3B82F6",
+    walk: "#22C55E",
+    bicycle: "#F97316",
+    traffic: "#8B5CF6",
+  };
+  return colors[mode];
+}
+
+export function getModeLabel(mode: TransportMode): string {
+  const labels: Record<TransportMode, string> = {
+    car: "자동차",
+    walk: "도보",
+    bicycle: "자전거",
+    traffic: "대중교통",
+  };
+  return labels[mode];
+}
 
 export async function fetchRoute(
   points: LatLng[],
@@ -24,8 +51,7 @@ export async function fetchRoute(
 
   try {
     const coords = points.map((p) => `${p.lng},${p.lat}`).join(";");
-    const profile = OSRM_PROFILE[mode];
-    const res = await fetch(`${OSRM_BASE}/${profile}/${coords}?overview=full&geometries=geojson`);
+    const res = await fetch(`${OSRM_BASE}/driving/${coords}?overview=full&geometries=geojson`);
     if (!res.ok) return buildStraightLine(points, mode);
 
     const data = await res.json();
@@ -36,13 +62,14 @@ export async function fetchRoute(
       (c: [number, number]) => ({ lat: c[1], lng: c[0] })
     );
 
-    const duration = route.distance / SPEED[mode];
+    const distance = route.distance * DIST_FACTOR[mode];
+    const duration = distance / SPEED_MS[mode];
 
     return {
       from: points[0],
       to: points[points.length - 1],
       geometry,
-      distance: route.distance,
+      distance,
       duration,
     };
   } catch {
@@ -55,13 +82,13 @@ function buildStraightLine(points: LatLng[], mode: TransportMode): RouteSegment 
   for (let i = 1; i < points.length; i++) {
     totalDist += haversine(points[i - 1], points[i]);
   }
-  const factor = mode === "car" ? 1.35 : mode === "traffic" ? 1.5 : mode === "bicycle" ? 1.2 : 1.1;
+  const distance = totalDist * DIST_FACTOR[mode];
   return {
     from: points[0],
     to: points[points.length - 1],
     geometry: points,
-    distance: totalDist * factor,
-    duration: (totalDist * factor) / SPEED[mode],
+    distance,
+    duration: distance / SPEED_MS[mode],
   };
 }
 
