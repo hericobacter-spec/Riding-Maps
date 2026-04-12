@@ -1,60 +1,47 @@
+let loadPromise: Promise<void> | null = null;
+
 export function loadKakaoMaps(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (typeof window === "undefined") {
-      reject(new Error("Not in browser"));
-      return;
-    }
+  if (typeof window === "undefined") return Promise.reject(new Error("Not in browser"));
 
-    if (window.kakao?.maps?.LatLng && (kakao.maps as any).services?.Places) {
+  if (loadPromise) return loadPromise;
+
+  loadPromise = new Promise((resolve, reject) => {
+    if (window.kakao?.maps?.LatLng && (window.kakao as any).maps?.services?.Places) {
       resolve();
       return;
     }
-
-    let resolved = false;
-
-    const doResolve = () => {
-      if (resolved) return;
-      resolved = true;
-      resolve();
-    };
-
-    const tryLoad = (): boolean | "loading" => {
-      if (window.kakao?.maps?.LatLng && (kakao.maps as any).services?.Places) {
-        return true;
-      }
-      if (window.kakao?.maps && typeof (kakao.maps as any).load === "function") {
-        try {
-          (kakao.maps as any).load(() => {
-            doResolve();
-          });
-        } catch {
-          doResolve();
-        }
-        return "loading";
-      }
-      return false;
-    };
-
-    const result = tryLoad();
-    if (result === true) { doResolve(); return; }
 
     let elapsed = 0;
     const iv = setInterval(() => {
-      const r = tryLoad();
-      if (r === true || r === "loading") {
+      if (window.kakao?.maps?.LatLng && (window.kakao as any).maps?.services?.Places) {
         clearInterval(iv);
-        if (r === true) doResolve();
-      } else {
-        elapsed += 100;
-        if (elapsed > 15000) {
-          clearInterval(iv);
-          reject(new Error("SDK 타임아웃"));
-        }
+        resolve();
+        return;
+      }
+
+      if (window.kakao?.maps && typeof (window.kakao as any).maps.load === "function" && elapsed >= 2000) {
+        clearInterval(iv);
+        (window.kakao as any).maps.load(() => {
+          const checkServices = () => {
+            if ((window.kakao as any).maps?.services?.Places) {
+              resolve();
+            } else {
+              setTimeout(checkServices, 200);
+            }
+          };
+          checkServices();
+        });
+        return;
+      }
+
+      elapsed += 100;
+      if (elapsed > 20000) {
+        clearInterval(iv);
+        loadPromise = null;
+        reject(new Error("SDK 타임아웃"));
       }
     }, 100);
-
-    setTimeout(() => {
-      if (!resolved) doResolve();
-    }, 5000);
   });
+
+  return loadPromise;
 }
