@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { loadKakaoMaps } from "@/lib/kakaoLoader";
 import type { RouteStop, RouteSegment, PhotoMarker } from "@/types";
 
 interface MapContainerProps {
@@ -8,21 +9,6 @@ interface MapContainerProps {
   route: RouteSegment | null;
   unassignedPhotos: PhotoMarker[];
   onStopClick?: (stopId: string) => void;
-}
-
-function waitKakao(): Promise<void> {
-  return new Promise((resolve) => {
-    if (typeof window !== "undefined" && window.kakao?.maps?.LatLng) {
-      resolve();
-      return;
-    }
-    const iv = setInterval(() => {
-      if (window.kakao?.maps?.LatLng) {
-        clearInterval(iv);
-        resolve();
-      }
-    }, 100);
-  });
 }
 
 export default function MapContainer({
@@ -34,35 +20,49 @@ export default function MapContainer({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<kakao.maps.Map | null>(null);
   const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
 
-    waitKakao().then(() => {
-      if (!mounted || !containerRef.current) return;
+    loadKakaoMaps()
+      .then(() => {
+        if (!mounted || !containerRef.current) return;
 
-      const center =
-        stops.length > 0
-          ? new kakao.maps.LatLng(stops[0].position.lat, stops[0].position.lng)
-          : new kakao.maps.LatLng(37.5665, 126.978);
+        const el = containerRef.current;
+        if (el.offsetWidth === 0 || el.offsetHeight === 0) {
+          setError("지도 영역 크기가 0입니다");
+          return;
+        }
 
-      const map = new kakao.maps.Map(containerRef.current, {
-        center,
-        level: 5,
+        const center =
+          stops.length > 0
+            ? new kakao.maps.LatLng(stops[0].position.lat, stops[0].position.lng)
+            : new kakao.maps.LatLng(37.5665, 126.978);
+
+        const map = new kakao.maps.Map(el, {
+          center,
+          level: 5,
+        });
+        mapRef.current = map;
+        setReady(true);
+        setError(null);
+      })
+      .catch((err) => {
+        if (mounted) setError(err.message);
       });
-      mapRef.current = map;
-      setReady(true);
-    });
 
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   useEffect(() => {
     if (!ready || !mapRef.current) return;
     const map = mapRef.current;
 
-    const markersPrev = (containerRef.current as any).__markers__ || [];
-    markersPrev.forEach((m: kakao.maps.Marker) => m.setMap(null));
+    const prevMarkers: kakao.maps.Marker[] = (containerRef.current as any).__markers__ || [];
+    prevMarkers.forEach((m) => m.setMap(null));
     const markers: kakao.maps.Marker[] = [];
     (containerRef.current as any).__markers__ = markers;
 
@@ -112,10 +112,10 @@ export default function MapContainer({
     if (!ready || !mapRef.current) return;
     const map = mapRef.current;
 
-    if ((mapRef.current as any).__polyline__) {
-      ((mapRef.current as any).__polyline__ as kakao.maps.Polyline).setMap(null);
-      (mapRef.current as any).__polyline__ = null;
-    }
+    const prev: kakao.maps.Polyline | null = (containerRef.current as any).__polyline__ || null;
+    if (prev) prev.setMap(null);
+    (containerRef.current as any).__polyline__ = null;
+
     if (!route) return;
 
     const path = route.geometry.map((p) => new kakao.maps.LatLng(p.lat, p.lng));
@@ -126,17 +126,17 @@ export default function MapContainer({
       strokeOpacity: 0.7,
     });
     polyline.setMap(map);
-    (mapRef.current as any).__polyline__ = polyline;
+    (containerRef.current as any).__polyline__ = polyline;
   }, [route, ready]);
 
   useEffect(() => {
     if (!ready || !mapRef.current) return;
     const map = mapRef.current;
 
-    (mapRef.current as any).__photoMarkers__ = (mapRef.current as any).__photoMarkers__ || [];
-    ((mapRef.current as any).__photoMarkers__ as kakao.maps.Marker[]).forEach((m) => m.setMap(null));
+    const prev: kakao.maps.Marker[] = (containerRef.current as any).__photoMarkers__ || [];
+    prev.forEach((m) => m.setMap(null));
     const pMarkers: kakao.maps.Marker[] = [];
-    (mapRef.current as any).__photoMarkers__ = pMarkers;
+    (containerRef.current as any).__photoMarkers__ = pMarkers;
 
     unassignedPhotos.forEach((photo) => {
       const position = new kakao.maps.LatLng(photo.position.lat, photo.position.lng);
@@ -156,6 +156,14 @@ export default function MapContainer({
       pMarkers.push(marker);
     });
   }, [unassignedPhotos, ready]);
+
+  if (error) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-gray-100 text-sm text-red-500">
+        {error}
+      </div>
+    );
+  }
 
   return (
     <div
