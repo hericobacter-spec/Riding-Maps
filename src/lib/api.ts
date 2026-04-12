@@ -9,6 +9,13 @@ const SPEED: Record<TransportMode, number> = {
   traffic: 25,
 };
 
+const OSRM_PROFILE: Record<TransportMode, string> = {
+  car: "driving",
+  walk: "foot",
+  bicycle: "bike",
+  traffic: "driving",
+};
+
 export async function fetchRoute(
   points: LatLng[],
   mode: TransportMode = "car"
@@ -17,7 +24,8 @@ export async function fetchRoute(
 
   try {
     const coords = points.map((p) => `${p.lng},${p.lat}`).join(";");
-    const res = await fetch(`${OSRM_BASE}/driving/${coords}?overview=full&geometries=geojson`);
+    const profile = OSRM_PROFILE[mode];
+    const res = await fetch(`${OSRM_BASE}/${profile}/${coords}?overview=full&geometries=geojson`);
     if (!res.ok) return buildStraightLine(points, mode);
 
     const data = await res.json();

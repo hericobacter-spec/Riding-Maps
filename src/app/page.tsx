@@ -51,6 +51,7 @@ export default function Home() {
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [drawing, setDrawing] = useState(false);
+  const [globalPhotos, setGlobalPhotos] = useState<PhotoMarker[]>([]);
 
   useEffect(() => {
     const loaded = loadJourneys();
@@ -72,7 +73,11 @@ export default function Home() {
   const selectedStop = activeJourney?.stops.find((s) => s.id === selectedStopId) ?? null;
   const route = activeJourney?.route ?? null;
   const transportMode = activeJourney?.transportMode ?? "car";
-  const unassignedPhotos: PhotoMarker[] = [];
+  const unassignedPhotos: PhotoMarker[] = (() => {
+    if (!activeJourney) return [];
+    const stopPhotoIds = new Set(activeJourney.stops.flatMap((s) => s.photos.map((p) => p.id)));
+    return globalPhotos.filter((p) => !stopPhotoIds.has(p.id));
+  })();
 
   const updateJourney = useCallback((updated: Journey) => {
     setJourneys((prev) =>
@@ -201,6 +206,7 @@ export default function Home() {
     (photos: PhotoMarker[]) => {
       if (!activeJourney) return;
       if (!selectedStopId) return;
+      setGlobalPhotos((prev) => [...prev, ...photos]);
       updateJourney({
         ...activeJourney,
         stops: activeJourney.stops.map((s) =>
@@ -209,6 +215,13 @@ export default function Home() {
       });
     },
     [activeJourney, selectedStopId, updateJourney]
+  );
+
+  const addPhotosToJourney = useCallback(
+    (photos: PhotoMarker[]) => {
+      setGlobalPhotos((prev) => [...prev, ...photos]);
+    },
+    []
   );
 
   const removePhotoFromStop = useCallback(
@@ -405,7 +418,7 @@ export default function Home() {
                     )}
                   </div>
                 )}
-                <PhotoUploader onPhotosExtracted={addPhotosToStop} />
+                <PhotoUploader onPhotosExtracted={addPhotosToJourney} />
               </>
             )}
 

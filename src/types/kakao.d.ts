@@ -125,6 +125,19 @@ declare namespace kakao {
         radius?: number;
         page?: number;
       }
+
+      class Geocoder {
+        coord2Address(
+          lng: number,
+          lat: number,
+          callback: (result: GeocoderResult[], status: Status) => void
+        ): void;
+      }
+
+      interface GeocoderResult {
+        address: { address_name: string };
+        road_address?: { address_name: string };
+      }
     }
 
     const load: ((callback: () => void) => void) | undefined;

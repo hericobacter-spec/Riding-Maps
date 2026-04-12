@@ -103,12 +103,20 @@ export default function MapContainer({
       );
       const marker = new kakao.maps.Marker({ position, image: markerImage, map });
       const infoWindow = new kakao.maps.InfoWindow({
-        content: `<div style="padding:8px;font-size:12px;"><strong>${stop.name}</strong><br/>${stop.position.lat.toFixed(4)}, ${stop.position.lng.toFixed(4)}</div>`,
+        content: `<div style="padding:8px;font-size:12px;"><strong>${stop.name}</strong><div id="stop-addr-${stop.id}" style="color:#666;">주소 로딩중...</div><div style="color:#999;font-size:11px;">${stop.position.lat.toFixed(6)}, ${stop.position.lng.toFixed(6)}</div></div>`,
         removable: true,
       });
       kakao.maps.event.addListener(marker, "click", () => {
         infoWindow.open(map, marker);
         onStopClick?.(stop.id);
+        const geocoder = new kakao.maps.services.Geocoder();
+        geocoder.coord2Address(stop.position.lng, stop.position.lat, (result: any, status: string) => {
+          if (status === "OK" && result?.[0]) {
+            const addr = result[0].road_address?.address_name || result[0].address?.address_name || "주소 없음";
+            const el = document.getElementById(`stop-addr-${stop.id}`);
+            if (el) el.textContent = addr;
+          }
+        });
       });
       markers.push(marker);
     });
@@ -149,11 +157,32 @@ export default function MapContainer({
         { offset: new kakao.maps.Point(22, 22) }
       );
       const marker = new kakao.maps.Marker({ position, image: markerImage, map });
+
+      let infoContent = `<div style="padding:8px;font-size:12px;max-width:200px;">`;
+      infoContent += `<img src="${photo.thumbnail}" style="width:140px;border-radius:4px;margin-bottom:6px;"/>`;
+      infoContent += `<div style="font-weight:600;margin-bottom:2px;">${photo.fileName}</div>`;
+      infoContent += `<div id="addr-${photo.id}" style="color:#666;">주소 로딩중...</div>`;
+      infoContent += `<div style="color:#999;font-size:11px;">${photo.position.lat.toFixed(6)}, ${photo.position.lng.toFixed(6)}</div>`;
+      if (photo.timestamp) infoContent += `<div style="color:#999;font-size:11px;">${new Date(photo.timestamp).toLocaleString("ko-KR")}</div>`;
+      if (photo.altitude != null) infoContent += `<div style="color:#999;font-size:11px;">고도: ${Math.round(photo.altitude)}m</div>`;
+      infoContent += `</div>`;
+
       const infoWindow = new kakao.maps.InfoWindow({
-        content: `<div style="padding:6px;font-size:12px;"><img src="${photo.thumbnail}" style="width:120px;border-radius:4px;margin-bottom:4px;"/><br/>${photo.position.lat.toFixed(4)}, ${photo.position.lng.toFixed(4)}<br/>${photo.fileName}</div>`,
+        content: infoContent,
         removable: true,
       });
-      kakao.maps.event.addListener(marker, "click", () => infoWindow.open(map, marker));
+
+      kakao.maps.event.addListener(marker, "click", () => {
+        infoWindow.open(map, marker);
+        const geocoder = new kakao.maps.services.Geocoder();
+        geocoder.coord2Address(photo.position.lng, photo.position.lat, (result: any, status: string) => {
+          if (status === "OK" && result?.[0]) {
+            const addr = result[0].road_address?.address_name || result[0].address?.address_name || "주소 없음";
+            const el = document.getElementById(`addr-${photo.id}`);
+            if (el) el.textContent = addr;
+          }
+        });
+      });
       pMarkers.push(marker);
     });
   }, [unassignedPhotos, ready]);
