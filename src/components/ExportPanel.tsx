@@ -20,7 +20,7 @@ export default function ExportPanel({ journal }: ExportPanelProps) {
 
   const handleDownload = useCallback(() => {
     const result = buildMarkdown(journal);
-    const filename = journal.title ? `${journal.title}.md` : "travel-journal.md";
+    const filename = journal.title ? `${journal.title}.mdx` : "travel-journal.mdx";
     downloadMarkdown(result, filename);
   }, [journal]);
 
@@ -37,7 +37,7 @@ export default function ExportPanel({ journal }: ExportPanelProps) {
           onClick={handleDownload}
           className="flex-1 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
         >
-          .md 다운로드
+          .mdx 다운로드
         </button>
       </div>
 

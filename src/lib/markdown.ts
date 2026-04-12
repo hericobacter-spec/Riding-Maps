@@ -81,7 +81,7 @@ export function downloadMarkdown(content: string, filename: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = filename.endsWith(".md") ? filename : `${filename}.md`;
+  a.download = filename.endsWith(".mdx") ? filename : `${filename}.mdx`;
   a.click();
   URL.revokeObjectURL(url);
 }

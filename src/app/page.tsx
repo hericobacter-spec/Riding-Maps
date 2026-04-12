@@ -38,6 +38,7 @@ function createJourney(title?: string): Journey {
     content: "",
     route: null,
     transportMode: "car",
+    photos: [],
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -51,7 +52,6 @@ export default function Home() {
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [drawing, setDrawing] = useState(false);
-  const [globalPhotos, setGlobalPhotos] = useState<PhotoMarker[]>([]);
 
   useEffect(() => {
     const loaded = loadJourneys();
@@ -76,7 +76,7 @@ export default function Home() {
   const unassignedPhotos: PhotoMarker[] = (() => {
     if (!activeJourney) return [];
     const stopPhotoIds = new Set(activeJourney.stops.flatMap((s) => s.photos.map((p) => p.id)));
-    return globalPhotos.filter((p) => !stopPhotoIds.has(p.id));
+    return activeJourney.photos.filter((p) => !stopPhotoIds.has(p.id));
   })();
 
   const updateJourney = useCallback((updated: Journey) => {
@@ -206,9 +206,9 @@ export default function Home() {
     (photos: PhotoMarker[]) => {
       if (!activeJourney) return;
       if (!selectedStopId) return;
-      setGlobalPhotos((prev) => [...prev, ...photos]);
       updateJourney({
         ...activeJourney,
+        photos: [...activeJourney.photos, ...photos],
         stops: activeJourney.stops.map((s) =>
           s.id === selectedStopId ? { ...s, photos: [...s.photos, ...photos] } : s
         ),
@@ -219,9 +219,25 @@ export default function Home() {
 
   const addPhotosToJourney = useCallback(
     (photos: PhotoMarker[]) => {
-      setGlobalPhotos((prev) => [...prev, ...photos]);
+      if (!activeJourney) return;
+      updateJourney({ ...activeJourney, photos: [...activeJourney.photos, ...photos] });
     },
-    []
+    [activeJourney, updateJourney]
+  );
+
+  const removePhotoFromJourney = useCallback(
+    (photoId: string) => {
+      if (!activeJourney) return;
+      updateJourney({
+        ...activeJourney,
+        photos: activeJourney.photos.filter((p) => p.id !== photoId),
+        stops: activeJourney.stops.map((s) => ({
+          ...s,
+          photos: s.photos.filter((p) => p.id !== photoId),
+        })),
+      });
+    },
+    [activeJourney, updateJourney]
   );
 
   const removePhotoFromStop = useCallback(
@@ -229,6 +245,7 @@ export default function Home() {
       if (!activeJourney) return;
       updateJourney({
         ...activeJourney,
+        photos: activeJourney.photos.filter((p) => p.id !== photoId),
         stops: activeJourney.stops.map((s) => ({
           ...s,
           photos: s.photos.filter((p) => p.id !== photoId),
@@ -420,6 +437,31 @@ export default function Home() {
                   </div>
                 )}
                 <PhotoUploader onPhotosExtracted={addPhotosToJourney} />
+                {activeJourney && activeJourney.photos.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-gray-500">
+                      사진 ({activeJourney.photos.length}장)
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {activeJourney.photos.map((photo) => (
+                        <div key={photo.id} className="group relative">
+                          <img
+                            src={photo.thumbnail}
+                            alt={photo.fileName}
+                            className="h-20 w-full rounded-md object-cover"
+                          />
+                          <button
+                            onClick={() => removePhotoFromJourney(photo.id)}
+                            className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            ×
+                          </button>
+                          <p className="mt-0.5 truncate text-[10px] text-gray-400">{photo.fileName}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
@@ -477,11 +519,18 @@ export default function Home() {
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
-                          <p className="text-base font-semibold text-gray-800 truncate">
-                            {j.title}
-                          </p>
+                          <input
+                            type="text"
+                            value={j.title}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              updateJourney({ ...j, title: e.target.value });
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full text-base font-semibold text-gray-800 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-yellow-400 focus:outline-none truncate"
+                          />
                           <p className="mt-1 text-sm text-gray-400">
-                            {j.stops.length}개 정지 | {new Date(j.createdAt).toLocaleDateString("ko-KR")}
+                            {j.stops.length}개 정지 | {j.photos.length}장 사진 | {new Date(j.createdAt).toLocaleDateString("ko-KR")}
                             {j.route && " | 경로 있음"}
                           </p>
                         </div>

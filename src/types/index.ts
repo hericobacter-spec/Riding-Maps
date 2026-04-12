@@ -40,6 +40,7 @@ export interface Journey {
   content: string;
   route: RouteSegment | null;
   transportMode: TransportMode;
+  photos: PhotoMarker[];
   createdAt: Date;
   updatedAt: Date;
 }
