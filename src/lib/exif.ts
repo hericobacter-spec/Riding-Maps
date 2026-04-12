@@ -16,7 +16,13 @@ export async function extractGpsFromImage(file: File): Promise<PhotoMarker | nul
     }
 
     const position: LatLng = { lat: gps.latitude, lng: gps.longitude };
-    const thumbnail = URL.createObjectURL(file);
+
+    let thumbnail: string;
+    try {
+      thumbnail = await resizeToDataUrl(file, 400);
+    } catch {
+      thumbnail = URL.createObjectURL(file);
+    }
 
     let timestamp: Date | null = null;
     let altitude: number | null = null;
@@ -29,7 +35,6 @@ export async function extractGpsFromImage(file: File): Promise<PhotoMarker | nul
       }
     } catch {}
 
-    console.log(`[EXIF] GPS 추출 성공: ${file.name}`, position);
     return {
       id: crypto.randomUUID(),
       position,
@@ -53,4 +58,26 @@ export async function extractGpsFromFiles(files: File[]): Promise<PhotoMarker[]>
         r.status === "fulfilled" && r.value !== null
     )
     .map((r) => r.value!);
+}
+
+function resizeToDataUrl(file: File, maxSize: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { reject(new Error("no ctx")); return; }
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL("image/jpeg", 0.7));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("img load fail")); };
+    img.src = url;
+  });
 }

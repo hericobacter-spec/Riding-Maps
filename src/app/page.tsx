@@ -20,7 +20,20 @@ function loadJourneys(): Journey[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return parsed.map((j: any) => ({
+      ...j,
+      photos: j.photos ?? [],
+      stops: (j.stops ?? []).map((s: any) => ({
+        ...s,
+        photos: s.photos ?? [],
+        content: s.content ?? "",
+      })),
+      content: j.content ?? "",
+      transportMode: j.transportMode ?? "car",
+      route: j.route ?? null,
+    }));
   } catch {
     return [];
   }
