@@ -9,7 +9,7 @@ import PhotoUploader from "@/components/PhotoUploader";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import ExportPanel from "@/components/ExportPanel";
 import { fetchRoute } from "@/lib/api";
-import type { RouteStop, RouteSegment, PhotoMarker, Journey } from "@/types";
+import type { RouteStop, RouteSegment, PhotoMarker, Journey, TransportMode } from "@/types";
 
 type AddMode = "origin" | "waypoint" | "destination";
 type SidebarTab = "journeys" | "route" | "journal";
@@ -50,6 +50,7 @@ export default function Home() {
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("journeys");
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [transportMode, setTransportMode] = useState<TransportMode>("car");
 
   useEffect(() => {
     const loaded = loadJourneys();
@@ -219,7 +220,7 @@ export default function Home() {
       return;
     }
     const points = stops.map((s) => s.position);
-    const result = await fetchRoute(points);
+    const result = await fetchRoute(points, transportMode);
     setRoute(result);
   }
 
@@ -418,12 +419,34 @@ export default function Home() {
                   selectedId={selectedStopId}
                 />
                 {activeJourney.stops.length >= 2 && (
-                  <button
-                    onClick={handleDrawRoute}
-                    className="w-full rounded-lg bg-blue-600 py-3 text-base font-semibold text-white hover:bg-blue-700 md:py-2 md:text-sm"
-                  >
-                    경로 그리기
-                  </button>
+                  <>
+                    <div className="grid grid-cols-4 gap-1">
+                      {([
+                        { mode: "car" as const, label: "자동차", icon: "🚗" },
+                        { mode: "walk" as const, label: "도보", icon: "🚶" },
+                        { mode: "bicycle" as const, label: "자전거", icon: "🚴" },
+                        { mode: "traffic" as const, label: "대중교통", icon: "🚌" },
+                      ]).map(({ mode, label, icon }) => (
+                        <button
+                          key={mode}
+                          onClick={() => setTransportMode(mode)}
+                          className={`rounded-lg py-2 text-sm font-medium transition-colors ${
+                            transportMode === mode
+                              ? "bg-blue-600 text-white"
+                              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          }`}
+                        >
+                          {icon} {label}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      onClick={handleDrawRoute}
+                      className="w-full rounded-lg bg-blue-600 py-3 text-base font-semibold text-white hover:bg-blue-700 md:py-2 md:text-sm"
+                    >
+                      경로 그리기
+                    </button>
+                  </>
                 )}
                 {route && (
                   <div className="rounded-lg bg-gray-50 p-4 text-sm text-gray-600 md:text-xs md:p-3">

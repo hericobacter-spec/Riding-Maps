@@ -1,7 +1,15 @@
+import { loadKakaoMaps } from "./kakaoLoader";
 import type { SearchResult } from "@/types";
 
-export async function searchPlaceKakao(query: string): Promise<SearchResult[]> {
+export async function searchPlace(query: string): Promise<SearchResult[]> {
   if (!query.trim()) return [];
+
+  await loadKakaoMaps();
+
+  if (!window.kakao?.maps?.services?.Places) {
+    console.error("kakao.maps.services not available");
+    return [];
+  }
 
   return new Promise((resolve) => {
     const places = new kakao.maps.services.Places();
@@ -27,5 +35,3 @@ export async function searchPlaceKakao(query: string): Promise<SearchResult[]> {
     );
   });
 }
-
-export { searchPlaceKakao as searchPlace };

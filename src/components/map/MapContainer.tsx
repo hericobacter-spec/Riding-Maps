@@ -20,48 +20,26 @@ export default function MapContainer({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<kakao.maps.Map | null>(null);
   const [ready, setReady] = useState(false);
-  const [status, setStatus] = useState("초기화 중...");
-  const [sdkUrl, setSdkUrl] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
 
-    const url = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_MAP_KEY}&libraries=services`;
-    setSdkUrl(url);
-    setStatus("SDK 로딩 중...");
     loadKakaoMaps()
       .then(() => {
-        if (!mounted) return;
-        setStatus("SDK 로드됨, 지도 생성 중...");
-
-        const el = containerRef.current;
-        if (!el) {
-          setStatus("에러: 컨테이너 요소 없음");
-          return;
-        }
-
-        const w = el.offsetWidth;
-        const h = el.offsetHeight;
-        if (w === 0 || h === 0) {
-          setStatus(`에러: 컨테이너 크기 0 (w=${w}, h=${h})`);
-          return;
-        }
+        if (!mounted || !containerRef.current) return;
 
         const lat = stops.length > 0 ? stops[0].position.lat : 37.5665;
         const lng = stops.length > 0 ? stops[0].position.lng : 126.978;
 
-        try {
-          const center = new kakao.maps.LatLng(lat, lng);
-          const map = new kakao.maps.Map(el, { center, level: 5 });
-          mapRef.current = map;
-          setReady(true);
-          setStatus("");
-        } catch (e) {
-          setStatus("지도 생성 에러: " + (e instanceof Error ? e.message : String(e)));
-        }
+        const center = new kakao.maps.LatLng(lat, lng);
+        const map = new kakao.maps.Map(containerRef.current, { center, level: 5 });
+        mapRef.current = map;
+        setReady(true);
+        setError(null);
       })
       .catch((err) => {
-        if (mounted) setStatus("SDK 로딩 실패: " + err.message);
+        if (mounted) setError(err.message);
       });
 
     return () => { mounted = false; };
@@ -101,10 +79,12 @@ export default function MapContainer({
       markers.push(marker);
     });
 
-    const sw = stops.reduce((m, s) => ({ lat: Math.min(m.lat, s.position.lat), lng: Math.min(m.lng, s.position.lng) }), { lat: Infinity, lng: Infinity });
-    const ne = stops.reduce((m, s) => ({ lat: Math.max(m.lat, s.position.lat), lng: Math.max(m.lng, s.position.lng) }), { lat: -Infinity, lng: -Infinity });
-    const bounds = new kakao.maps.LatLngBounds(new kakao.maps.LatLng(sw.lat, sw.lng), new kakao.maps.LatLng(ne.lat, ne.lng));
-    map.setBounds(bounds);
+    if (stops.length > 0) {
+      const sw = stops.reduce((m, s) => ({ lat: Math.min(m.lat, s.position.lat), lng: Math.min(m.lng, s.position.lng) }), { lat: Infinity, lng: Infinity });
+      const ne = stops.reduce((m, s) => ({ lat: Math.max(m.lat, s.position.lat), lng: Math.max(m.lng, s.position.lng) }), { lat: -Infinity, lng: -Infinity });
+      const bounds = new kakao.maps.LatLngBounds(new kakao.maps.LatLng(sw.lat, sw.lng), new kakao.maps.LatLng(ne.lat, ne.lng));
+      map.setBounds(bounds);
+    }
   }, [stops, ready, onStopClick]);
 
   useEffect(() => {
@@ -119,22 +99,38 @@ export default function MapContainer({
     (containerRef.current as any).__polyline__ = polyline;
   }, [route, ready]);
 
-  return (
-    <>
-      {status && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-50">
-          <div className="rounded-lg bg-white p-6 shadow-lg text-center max-w-sm">
-            <p className="text-sm text-gray-600">{status}</p>
-            <p className="mt-2 text-xs text-gray-400">
-              kakao: {typeof window !== "undefined" && window.kakao ? "O" : "X"} |
-              maps: {typeof window !== "undefined" && window.kakao?.maps ? "O" : "X"} |
-              LatLng: {typeof window !== "undefined" && window.kakao?.maps?.LatLng ? "O" : "X"}
-            </p>
-            <p className="mt-3 break-all rounded bg-gray-100 p-2 text-[10px] text-gray-500">{sdkUrl}</p>
-          </div>
-        </div>
-      )}
-      <div ref={containerRef} style={{ position: "absolute", inset: 0 }} />
-    </>
-  );
+  useEffect(() => {
+    if (!ready || !mapRef.current) return;
+    const map = mapRef.current;
+    const prev: kakao.maps.Marker[] = (containerRef.current as any).__photoMarkers__ || [];
+    prev.forEach((m) => m.setMap(null));
+    const pMarkers: kakao.maps.Marker[] = [];
+    (containerRef.current as any).__photoMarkers__ = pMarkers;
+
+    unassignedPhotos.forEach((photo) => {
+      const position = new kakao.maps.LatLng(photo.position.lat, photo.position.lng);
+      const markerImage = new kakao.maps.MarkerImage(
+        `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44"><rect width="44" height="44" rx="6" fill="white" stroke="#ddd"/><text x="22" y="28" text-anchor="middle" font-size="20">📷</text></svg>`)}`,
+        new kakao.maps.Size(44, 44),
+        { offset: new kakao.maps.Point(22, 22) }
+      );
+      const marker = new kakao.maps.Marker({ position, image: markerImage, map });
+      const infoWindow = new kakao.maps.InfoWindow({
+        content: `<div style="padding:6px;font-size:12px;"><img src="${photo.thumbnail}" style="width:120px;border-radius:4px;margin-bottom:4px;"/><br/>${photo.position.lat.toFixed(4)}, ${photo.position.lng.toFixed(4)}<br/>${photo.fileName}</div>`,
+        removable: true,
+      });
+      kakao.maps.event.addListener(marker, "click", () => infoWindow.open(map, marker));
+      pMarkers.push(marker);
+    });
+  }, [unassignedPhotos, ready]);
+
+  if (error) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-gray-100 text-sm text-red-500 p-4 text-center">
+        {error}
+      </div>
+    );
+  }
+
+  return <div ref={containerRef} style={{ position: "absolute", inset: 0 }} />;
 }

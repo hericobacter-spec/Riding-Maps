@@ -5,30 +5,39 @@ export function loadKakaoMaps(): Promise<void> {
       return;
     }
 
-    if (window.kakao?.maps?.LatLng) {
+    if (window.kakao?.maps?.LatLng && (kakao.maps as any).services) {
       resolve();
       return;
     }
 
     const tryLoad = () => {
+      if (window.kakao?.maps?.LatLng && (kakao.maps as any).services) {
+        return true;
+      }
       if (window.kakao?.maps && typeof (kakao.maps as any).load === "function") {
         (kakao.maps as any).load(() => {
-          if (window.kakao?.maps?.LatLng) {
+          if (window.kakao?.maps?.LatLng && (kakao.maps as any).services) {
             resolve();
           } else {
-            reject(new Error("load 콜백 후에도 LatLng 없음"));
+            reject(new Error("load 콜백 후에도 services 없음"));
           }
         });
-        return true;
+        return "loading";
       }
       return false;
     };
 
-    if (tryLoad()) return;
+    const result = tryLoad();
+    if (result === true) { resolve(); return; }
+    if (result === "loading") { return; }
 
     let elapsed = 0;
     const iv = setInterval(() => {
-      if (tryLoad()) {
+      const r = tryLoad();
+      if (r === true) {
+        clearInterval(iv);
+        resolve();
+      } else if (r === "loading") {
         clearInterval(iv);
       } else {
         elapsed += 100;

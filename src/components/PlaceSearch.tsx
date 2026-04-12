@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { loadKakaoMaps } from "@/lib/kakaoLoader";
+import { searchPlace } from "@/lib/geocoding";
 import type { SearchResult, RouteStop } from "@/types";
 
 interface PlaceSearchProps {
@@ -17,11 +17,15 @@ export default function PlaceSearch({ onPlaceSelect, stopType }: PlaceSearchProp
   const handleSearch = useCallback(async () => {
     if (!query.trim()) return;
     setSearching(true);
-    await loadKakaoMaps();
-    const { searchPlace } = await import("@/lib/geocoding");
-    const places = await searchPlace(query);
-    setResults(places);
-    setSearching(false);
+    try {
+      const places = await searchPlace(query);
+      setResults(places);
+    } catch (e) {
+      console.error(e);
+      setResults([]);
+    } finally {
+      setSearching(false);
+    }
   }, [query]);
 
   const handleSelect = useCallback(

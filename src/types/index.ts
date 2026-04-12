@@ -31,6 +31,8 @@ export interface RouteSegment {
   duration: number;
 }
 
+export type TransportMode = "car" | "walk" | "bicycle" | "traffic";
+
 export interface Journey {
   id: string;
   title: string;
