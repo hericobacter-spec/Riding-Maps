@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -18,8 +17,6 @@ export const metadata: Metadata = {
   description: "여정을 기록하는 위치 기반 지도 웹앱",
 };
 
-const KAKAO_SDK = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_MAP_KEY}&libraries=services`;
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -31,13 +28,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head />
-      <body className="h-full overflow-hidden">
-        <Script
-          src={KAKAO_SDK}
-          strategy="beforeInteractive"
-        />
-        {children}
-      </body>
+      <body className="h-full overflow-hidden">{children}</body>
     </html>
   );
 }
