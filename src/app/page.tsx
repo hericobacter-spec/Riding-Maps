@@ -76,11 +76,81 @@ export default function Home() {
       setJourneys([j]);
       setActiveJourneyId(j.id);
     }
+
+    syncFromDb();
   }, []);
 
+  async function syncFromDb() {
+    try {
+      const res = await fetch("/api/journeys");
+      if (!res.ok) return;
+      const { journeys: dbJourneys } = await res.json();
+      if (!dbJourneys || dbJourneys.length === 0) return;
+
+      const local = loadJourneys();
+      const localMap = new Map(local.map((j) => [j.id, j]));
+      const merged: Journey[] = [];
+
+      for (const dbJ of dbJourneys) {
+        const localJ = localMap.get(dbJ.id);
+        if (!localJ) {
+          merged.push(migrateJourney(dbJ));
+        } else {
+          const dbTime = new Date(dbJ.updatedAt || dbJ._dbUpdatedAt || 0).getTime();
+          const localTime = new Date(localJ.updatedAt).getTime();
+          merged.push(dbTime > localTime ? migrateJourney(dbJ) : localJ);
+          localMap.delete(dbJ.id);
+        }
+      }
+
+      for (const localJ of localMap.values()) {
+        merged.push(localJ);
+      }
+
+      if (merged.length === 0) {
+        const j = createJourney();
+        merged.push(j);
+      }
+
+      merged.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
+      setJourneys(merged);
+      setActiveJourneyId((prev) => prev ?? merged[0].id);
+      saveJourneys(merged);
+    } catch {}
+  }
+
+  function migrateJourney(j: any): Journey {
+    return {
+      ...j,
+      photos: j.photos ?? [],
+      stops: (j.stops ?? []).map((s: any) => ({
+        ...s,
+        photos: s.photos ?? [],
+        content: s.content ?? "",
+      })),
+      content: j.content ?? "",
+      transportMode: j.transportMode ?? "car",
+      route: j.route ?? null,
+    };
+  }
+
   useEffect(() => {
-    if (journeys.length > 0) saveJourneys(journeys);
+    if (journeys.length > 0) {
+      saveJourneys(journeys);
+      syncToDb(journeys);
+    }
   }, [journeys]);
+
+  async function syncToDb(journeysToSync: Journey[]) {
+    try {
+      await fetch("/api/journeys", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ journeys: journeysToSync }),
+      });
+    } catch {}
+  }
 
   const activeJourney = journeys.find((j) => j.id === activeJourneyId) ?? null;
   const selectedStop = activeJourney?.stops.find((s) => s.id === selectedStopId) ?? null;
@@ -122,6 +192,7 @@ export default function Home() {
           setSelectedStopId(null);
         }
         saveJourneys(next);
+        fetch(`/api/journeys?id=${id}`, { method: "DELETE" }).catch(() => {});
         return next;
       });
     },
