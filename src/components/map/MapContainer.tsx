@@ -25,7 +25,8 @@ export default function MapContainer({
   useEffect(() => {
     let mounted = true;
 
-    setStatus("카카오 SDK 대기 중...");
+    const sdkUrl = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_MAP_KEY}&libraries=services`;
+    setStatus(`SDK 로딩 중... URL: ${sdkUrl}`);
     loadKakaoMaps()
       .then(() => {
         if (!mounted) return;
