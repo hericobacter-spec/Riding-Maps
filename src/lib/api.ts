@@ -4,14 +4,11 @@ const OSRM_BASE = "https://router.project-osrm.org/route/v1";
 
 function getProfile(mode: TransportMode): string {
   switch (mode) {
-    case "bicycle":
-      return "bike";
-    case "walk":
-      return "foot";
+    case "bicycle": return "bike";
+    case "walk": return "foot";
     case "car":
     case "traffic":
-    default:
-      return "driving";
+    default: return "driving";
   }
 }
 
@@ -33,9 +30,9 @@ export async function fetchRoute(
   const profile = getProfile(mode);
 
   try {
-    const params = points.map((p) => `point=${p.lat},${p.lng}`).join("&");
+    const coords = points.map((p) => `${p.lng},${p.lat}`).join(";");
     const res = await fetch(
-      `${OSRM_BASE}/${profile}/?${params}&overview=full&geometries=geojson`
+      `${OSRM_BASE}/${profile}/${coords}?overview=full&geometries=geojson`
     );
     if (!res.ok) return buildStraightLine(points, mode);
 
@@ -43,14 +40,14 @@ export async function fetchRoute(
     const route = data.routes?.[0];
     if (!route) return buildStraightLine(points, mode);
 
-    const coords: LatLng[] = route.geometry.coordinates.map(
+    const geometry: LatLng[] = route.geometry.coordinates.map(
       (c: [number, number]) => ({ lat: c[1], lng: c[0] })
     );
 
     return {
       from: points[0],
       to: points[points.length - 1],
-      geometry: coords,
+      geometry,
       distance: route.distance,
       duration: route.duration,
     };
