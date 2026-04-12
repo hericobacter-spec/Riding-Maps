@@ -38,6 +38,8 @@ export interface Journey {
   title: string;
   stops: RouteStop[];
   content: string;
+  route: RouteSegment | null;
+  transportMode: TransportMode;
   createdAt: Date;
   updatedAt: Date;
 }

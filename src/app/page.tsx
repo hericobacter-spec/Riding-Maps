@@ -36,6 +36,8 @@ function createJourney(title?: string): Journey {
     title: title || "새 여정",
     stops: [],
     content: "",
+    route: null,
+    transportMode: "car",
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -45,12 +47,10 @@ export default function Home() {
   const [journeys, setJourneys] = useState<Journey[]>([]);
   const [activeJourneyId, setActiveJourneyId] = useState<string | null>(null);
   const [addMode, setAddMode] = useState<AddMode>("waypoint");
-  const [route, setRoute] = useState<RouteSegment | null>(null);
-  const [unassignedPhotos, setUnassignedPhotos] = useState<PhotoMarker[]>([]);
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("route");
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const [mobileMenu, setMobileMenu] = useState(false);
-  const [transportMode, setTransportMode] = useState<TransportMode>("car");
+  const [drawing, setDrawing] = useState(false);
 
   useEffect(() => {
     const loaded = loadJourneys();
@@ -70,6 +70,9 @@ export default function Home() {
 
   const activeJourney = journeys.find((j) => j.id === activeJourneyId) ?? null;
   const selectedStop = activeJourney?.stops.find((s) => s.id === selectedStopId) ?? null;
+  const route = activeJourney?.route ?? null;
+  const transportMode = activeJourney?.transportMode ?? "car";
+  const unassignedPhotos: PhotoMarker[] = [];
 
   const updateJourney = useCallback((updated: Journey) => {
     setJourneys((prev) =>
@@ -82,8 +85,6 @@ export default function Home() {
     setJourneys((prev) => [j, ...prev]);
     setActiveJourneyId(j.id);
     setSelectedStopId(null);
-    setRoute(null);
-    setUnassignedPhotos([]);
     setSidebarTab("route");
     setMobileMenu(true);
   }, []);
@@ -100,8 +101,6 @@ export default function Home() {
             next.push(j);
             setActiveJourneyId(j.id);
           }
-          setRoute(null);
-          setUnassignedPhotos([]);
           setSelectedStopId(null);
         }
         saveJourneys(next);
@@ -114,8 +113,6 @@ export default function Home() {
   const handleSelectJourney = useCallback((id: string) => {
     setActiveJourneyId(id);
     setSelectedStopId(null);
-    setRoute(null);
-    setUnassignedPhotos([]);
     setSidebarTab("route");
     setMobileMenu(true);
   }, []);
@@ -136,6 +133,14 @@ export default function Home() {
     [activeJourney, updateJourney]
   );
 
+  const setTransportMode = useCallback(
+    (mode: TransportMode) => {
+      if (!activeJourney) return;
+      updateJourney({ ...activeJourney, transportMode: mode });
+    },
+    [activeJourney, updateJourney]
+  );
+
   const addStop = useCallback(
     (stop: RouteStop) => {
       if (!activeJourney) return;
@@ -145,7 +150,6 @@ export default function Home() {
         updatedAt: new Date(),
       };
       updateJourney(updated);
-      rebuildRoute(updated.stops);
     },
     [activeJourney, updateJourney]
   );
@@ -156,11 +160,11 @@ export default function Home() {
       const updated = {
         ...activeJourney,
         stops: activeJourney.stops.filter((s) => s.id !== id).map((s, i) => ({ ...s, order: i })),
+        route: null,
         updatedAt: new Date(),
       };
       updateJourney(updated);
       setSelectedStopId((prev) => (prev === id ? null : prev));
-      rebuildRoute(updated.stops);
     },
     [activeJourney, updateJourney]
   );
@@ -174,10 +178,10 @@ export default function Home() {
       const updated = {
         ...activeJourney,
         stops: arr.map((s, i) => ({ ...s, order: i })),
+        route: null,
         updatedAt: new Date(),
       };
       updateJourney(updated);
-      rebuildRoute(updated.stops);
     },
     [activeJourney, updateJourney]
   );
@@ -196,10 +200,7 @@ export default function Home() {
   const addPhotosToStop = useCallback(
     (photos: PhotoMarker[]) => {
       if (!activeJourney) return;
-      if (!selectedStopId) {
-        setUnassignedPhotos((prev) => [...prev, ...photos]);
-        return;
-      }
+      if (!selectedStopId) return;
       updateJourney({
         ...activeJourney,
         stops: activeJourney.stops.map((s) =>
@@ -224,25 +225,23 @@ export default function Home() {
     [activeJourney, updateJourney]
   );
 
-  async function rebuildRoute(stops: RouteStop[]) {
-    if (stops.length < 2) {
-      setRoute(null);
-      return;
+  const handleDrawRoute = useCallback(async () => {
+    if (!activeJourney || activeJourney.stops.length < 2) return;
+    setDrawing(true);
+    try {
+      const points = activeJourney.stops.map((s) => s.position);
+      const result = await fetchRoute(points, activeJourney.transportMode);
+      updateJourney({ ...activeJourney, route: result, updatedAt: new Date() });
+    } finally {
+      setDrawing(false);
     }
-    const points = stops.map((s) => s.position);
-    const result = await fetchRoute(points, transportMode);
-    setRoute(result);
-  }
+  }, [activeJourney, updateJourney]);
 
   const handleStopClick = useCallback((id: string) => {
     setSelectedStopId(id);
     setSidebarTab("journal");
     setMobileMenu(true);
   }, []);
-
-  const handleDrawRoute = useCallback(() => {
-    if (activeJourney) rebuildRoute(activeJourney.stops);
-  }, [activeJourney]);
 
   const stops = activeJourney?.stops ?? [];
 
@@ -373,9 +372,10 @@ export default function Home() {
                     </div>
                     <button
                       onClick={handleDrawRoute}
-                      className="w-full rounded-lg bg-blue-600 py-3 text-base font-semibold text-white hover:bg-blue-700"
+                      disabled={drawing}
+                      className="w-full rounded-lg bg-blue-600 py-3 text-base font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
                     >
-                      경로 그리기
+                      {drawing ? "경로 계산 중..." : "경로 그리기"}
                     </button>
                   </>
                 )}
@@ -396,11 +396,6 @@ export default function Home() {
                   </div>
                 )}
                 <PhotoUploader onPhotosExtracted={addPhotosToStop} />
-                {unassignedPhotos.length > 0 && (
-                  <div className="rounded-lg bg-yellow-50 p-3 text-sm text-yellow-700">
-                    미할당 사진 {unassignedPhotos.length}장 — 정지를 선택 후 사진을 추가하세요
-                  </div>
-                )}
               </>
             )}
 
@@ -463,6 +458,7 @@ export default function Home() {
                           </p>
                           <p className="mt-1 text-sm text-gray-400">
                             {j.stops.length}개 정지 | {new Date(j.createdAt).toLocaleDateString("ko-KR")}
+                            {j.route && " | 경로 있음"}
                           </p>
                         </div>
                         <button
