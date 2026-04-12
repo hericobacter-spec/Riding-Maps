@@ -17,6 +17,8 @@ export const metadata: Metadata = {
   description: "여정을 기록하는 위치 기반 지도 웹앱",
 };
 
+const KAKAO_SDK = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_MAP_KEY}&libraries=services`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -27,7 +29,12 @@ export default function RootLayout({
       lang="ko"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <head />
+      <head>
+        <script
+          type="text/javascript"
+          src={KAKAO_SDK}
+        />
+      </head>
       <body className="h-full overflow-hidden">{children}</body>
     </html>
   );
