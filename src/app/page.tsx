@@ -8,7 +8,7 @@ import StopEditor from "@/components/StopEditor";
 import PhotoUploader from "@/components/PhotoUploader";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import ExportPanel from "@/components/ExportPanel";
-import { fetchRoute } from "@/lib/api";
+import { fetchRoute, getKakaoRouteUrl } from "@/lib/api";
 import type { RouteStop, RouteSegment, PhotoMarker, Journey, TransportMode } from "@/types";
 
 type AddMode = "origin" | "waypoint" | "destination";
@@ -380,7 +380,7 @@ export default function Home() {
                   </>
                 )}
                 {route && (
-                  <div className="rounded-lg bg-gray-50 p-4 text-sm text-gray-600">
+                  <div className="rounded-lg bg-gray-50 p-4 text-sm text-gray-600 space-y-2">
                     <p>
                       총 거리:{" "}
                       {route.distance >= 1000
@@ -393,6 +393,16 @@ export default function Home() {
                         ? `${Math.floor(route.duration / 3600)}시간 ${Math.floor((route.duration % 3600) / 60)}분`
                         : `${Math.floor(route.duration / 60)}분`}
                     </p>
+                    {activeJourney && activeJourney.stops.length >= 2 && (
+                      <a
+                        href={getKakaoRouteUrl(activeJourney.stops, transportMode)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block rounded-lg bg-yellow-500 px-4 py-2 text-sm font-semibold text-white hover:bg-yellow-600"
+                      >
+                        카카오맵에서 상세 경로 보기
+                      </a>
+                    )}
                   </div>
                 )}
                 <PhotoUploader onPhotosExtracted={addPhotosToStop} />
