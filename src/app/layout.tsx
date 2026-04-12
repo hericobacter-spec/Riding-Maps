@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -29,13 +30,14 @@ export default function RootLayout({
       lang="ko"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <head>
-        <script
-          type="text/javascript"
+      <head />
+      <body className="h-full overflow-hidden">
+        <Script
           src={KAKAO_SDK}
+          strategy="beforeInteractive"
         />
-      </head>
-      <body className="h-full overflow-hidden">{children}</body>
+        {children}
+      </body>
     </html>
   );
 }
