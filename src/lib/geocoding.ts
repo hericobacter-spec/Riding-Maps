@@ -15,9 +15,8 @@ export async function searchPlace(query: string): Promise<SearchResult[]> {
     const places = new services.Places();
     places.keywordSearch(
       query,
-      (result: any[], status: string, pagination: any) => {
-        console.log("searchPlace result:", { query, status, resultCount: result?.length, firstResult: result?.[0] });
-        if (status === services.OK) {
+      (result: any[], status: string) => {
+        if (status === "OK") {
           resolve(
             result.map((r) => ({
               display_name: r.place_name,
@@ -29,10 +28,10 @@ export async function searchPlace(query: string): Promise<SearchResult[]> {
               placeUrl: r.place_url,
             }))
           );
-        } else if (status === services.ZERO_RESULT) {
+        } else if (status === "ZERO_RESULT") {
           resolve([]);
         } else {
-          reject(new Error("검색 실패: status=" + status));
+          reject(new Error("검색 실패: " + status));
         }
       }
     );
