@@ -11,6 +11,18 @@ interface MapContainerProps {
   onStopClick?: (stopId: string) => void;
 }
 
+function createLocationIcon(): kakao.maps.MarkerImage {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24">
+    <circle cx="12" cy="12" r="10" fill="rgba(59,130,246,0.2)"/>
+    <circle cx="12" cy="12" r="6" fill="#3B82F6" stroke="white" stroke-width="3"/>
+  </svg>`;
+  return new kakao.maps.MarkerImage(
+    `data:image/svg+xml;base64,${btoa(svg)}`,
+    new kakao.maps.Size(24, 24),
+    { offset: new kakao.maps.Point(12, 12) }
+  );
+}
+
 export default function MapContainer({
   stops,
   route,
@@ -29,14 +41,36 @@ export default function MapContainer({
       .then(() => {
         if (!mounted || !containerRef.current) return;
 
-        const lat = stops.length > 0 ? stops[0].position.lat : 37.5665;
-        const lng = stops.length > 0 ? stops[0].position.lng : 126.978;
-
-        const center = new kakao.maps.LatLng(lat, lng);
+        const center = new kakao.maps.LatLng(37.5665, 126.978);
         const map = new kakao.maps.Map(containerRef.current, { center, level: 5 });
         mapRef.current = map;
         setReady(true);
         setError(null);
+
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              if (!mounted) return;
+              const lat = pos.coords.latitude;
+              const lng = pos.coords.longitude;
+              const myPos = new kakao.maps.LatLng(lat, lng);
+              map.setCenter(myPos);
+
+              const marker = new kakao.maps.Marker({
+                position: myPos,
+                image: createLocationIcon(),
+                map,
+              });
+
+              const infoWindow = new kakao.maps.InfoWindow({
+                content: '<div style="padding:6px;font-size:12px;">현재 위치</div>',
+                removable: true,
+              });
+              kakao.maps.event.addListener(marker, "click", () => infoWindow.open(map, marker));
+            },
+            () => {}
+          );
+        }
       })
       .catch((err) => {
         if (mounted) setError(err.message);

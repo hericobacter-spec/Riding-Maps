@@ -6,17 +6,18 @@ export async function searchPlace(query: string): Promise<SearchResult[]> {
 
   await loadKakaoMaps();
 
-  if (!window.kakao?.maps?.services?.Places) {
-    console.error("kakao.maps.services not available");
+  if (!(kakao.maps as any).services?.Places) {
+    console.error("searchPlace: kakao.maps.services.Places not available");
+    console.log("kakao.maps keys:", Object.keys(kakao.maps));
     return [];
   }
 
   return new Promise((resolve) => {
-    const places = new kakao.maps.services.Places();
+    const places = new (kakao.maps as any).services.Places();
     places.keywordSearch(
       query,
-      (result, status) => {
-        if (status !== kakao.maps.services.OK) {
+      (result: any[], status: string) => {
+        if (status !== (kakao.maps as any).services.OK) {
           resolve([]);
           return;
         }

@@ -5,40 +5,45 @@ export function loadKakaoMaps(): Promise<void> {
       return;
     }
 
-    if (window.kakao?.maps?.LatLng && (kakao.maps as any).services) {
+    if (window.kakao?.maps?.LatLng && (kakao.maps as any).services?.Places) {
       resolve();
       return;
     }
 
-    const tryLoad = () => {
-      if (window.kakao?.maps?.LatLng && (kakao.maps as any).services) {
+    let resolved = false;
+
+    const doResolve = () => {
+      if (resolved) return;
+      resolved = true;
+      resolve();
+    };
+
+    const tryLoad = (): boolean | "loading" => {
+      if (window.kakao?.maps?.LatLng && (kakao.maps as any).services?.Places) {
         return true;
       }
       if (window.kakao?.maps && typeof (kakao.maps as any).load === "function") {
-        (kakao.maps as any).load(() => {
-          if (window.kakao?.maps?.LatLng && (kakao.maps as any).services) {
-            resolve();
-          } else {
-            reject(new Error("load 콜백 후에도 services 없음"));
-          }
-        });
+        try {
+          (kakao.maps as any).load(() => {
+            doResolve();
+          });
+        } catch {
+          doResolve();
+        }
         return "loading";
       }
       return false;
     };
 
     const result = tryLoad();
-    if (result === true) { resolve(); return; }
-    if (result === "loading") { return; }
+    if (result === true) { doResolve(); return; }
 
     let elapsed = 0;
     const iv = setInterval(() => {
       const r = tryLoad();
-      if (r === true) {
+      if (r === true || r === "loading") {
         clearInterval(iv);
-        resolve();
-      } else if (r === "loading") {
-        clearInterval(iv);
+        if (r === true) doResolve();
       } else {
         elapsed += 100;
         if (elapsed > 15000) {
@@ -47,5 +52,9 @@ export function loadKakaoMaps(): Promise<void> {
         }
       }
     }, 100);
+
+    setTimeout(() => {
+      if (!resolved) doResolve();
+    }, 5000);
   });
 }
