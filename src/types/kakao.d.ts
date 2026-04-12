@@ -127,7 +127,7 @@ declare namespace kakao {
       }
     }
 
-    function load(callback: () => void): void;
+    const load: ((callback: () => void) => void) | undefined;
 
     class event {
       static addListener(target: unknown, type: string, handler: (...args: unknown[]) => void): void;
