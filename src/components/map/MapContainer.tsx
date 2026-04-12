@@ -21,12 +21,14 @@ export default function MapContainer({
   const mapRef = useRef<kakao.maps.Map | null>(null);
   const [ready, setReady] = useState(false);
   const [status, setStatus] = useState("초기화 중...");
+  const [sdkUrl, setSdkUrl] = useState("");
 
   useEffect(() => {
     let mounted = true;
 
-    const sdkUrl = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_MAP_KEY}&libraries=services`;
-    setStatus(`SDK 로딩 중... URL: ${sdkUrl}`);
+    const url = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_MAP_KEY}&libraries=services`;
+    setSdkUrl(url);
+    setStatus("SDK 로딩 중...");
     loadKakaoMaps()
       .then(() => {
         if (!mounted) return;
@@ -121,13 +123,14 @@ export default function MapContainer({
     <>
       {status && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-50">
-          <div className="rounded-lg bg-white p-6 shadow-lg text-center">
+          <div className="rounded-lg bg-white p-6 shadow-lg text-center max-w-sm">
             <p className="text-sm text-gray-600">{status}</p>
             <p className="mt-2 text-xs text-gray-400">
               kakao: {typeof window !== "undefined" && window.kakao ? "O" : "X"} |
               maps: {typeof window !== "undefined" && window.kakao?.maps ? "O" : "X"} |
               LatLng: {typeof window !== "undefined" && window.kakao?.maps?.LatLng ? "O" : "X"}
             </p>
+            <p className="mt-3 break-all rounded bg-gray-100 p-2 text-[10px] text-gray-500">{sdkUrl}</p>
           </div>
         </div>
       )}
